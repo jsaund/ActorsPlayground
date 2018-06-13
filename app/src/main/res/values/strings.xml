@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Actor Playground</string>
+
+    <string name="start">naive</string>
+    <string name="start_optimized">optimized</string>
+    <string name="start_distributed">distributed</string>
+
+    <string name="message">message: %s</string>
+    <string name="thread">thread: %s</string>
+    <string name="time">time: %d</string>
+</resources>
