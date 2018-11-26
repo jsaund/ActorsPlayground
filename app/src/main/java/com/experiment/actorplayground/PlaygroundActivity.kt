@@ -119,9 +119,9 @@ class PlaygroundActivity : AppCompatActivity(), CoroutineScope {
         actor?.close()
 
         val children: List<SendChannel<Action>> = (1..1000).map { createActor() }
-        var next = 0
 
         actor = actor(Dispatchers.IO, 0) {
+            var next = 0
             consumeEach { action ->
                 when (action) {
                     is Spin -> {
