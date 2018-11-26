@@ -112,14 +112,20 @@ class PlaygroundActivity : AppCompatActivity(), CoroutineScope {
         }
     }
 
+    /**
+     * Distributes work to multiple actors
+     */
     private fun startDistributed() {
         job.cancel()
         job = Job()
 
         actor?.close()
 
-        val children: List<SendChannel<Action>> = (1..1000).map { createActor() }
+        // We create a pool of actors that we can distribute work to later (adjust the number to see
+        // how much performance gain you can achieve)
+        val children: List<SendChannel<Action>> = (1..4).map { createActor() }
 
+        // Our main actor now acts as a router that distributes work to our child actors created before
         actor = actor(Dispatchers.IO, 0) {
             var next = 0
             consumeEach { action ->
