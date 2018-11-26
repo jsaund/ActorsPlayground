@@ -5,16 +5,20 @@ import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.CompletableDeferred
-import kotlinx.coroutines.experimental.Job
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.channels.SendChannel
-import kotlinx.coroutines.experimental.channels.actor
-import kotlinx.coroutines.experimental.channels.consumeEach
-import kotlinx.coroutines.experimental.launch
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.actor
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
-class PlaygroundActivity : AppCompatActivity() {
+class PlaygroundActivity : AppCompatActivity(), CoroutineScope {
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + job
+
     companion object {
         private const val TAG = "PlaygroundActivity"
     }
@@ -70,7 +74,7 @@ class PlaygroundActivity : AppCompatActivity() {
         val start = System.currentTimeMillis()
         (1..1000).map { Spin(it) }
                 .forEach { s ->
-                    launch(UI, parent = job) { actor!!.send(s) }
+                    launch { actor!!.send(s) }
                     val duration = System.currentTimeMillis() - start
                     thread.text = getString(R.string.thread, Thread.currentThread().name)
                     message.text = getString(R.string.message, s.id.toString())
@@ -87,7 +91,7 @@ class PlaygroundActivity : AppCompatActivity() {
         actor?.close()
         actor = createActor()
 
-        launch(UI, parent = job) {
+        launch {
             val start = System.currentTimeMillis()
             val ack = CompletableDeferred<Boolean>()
             (1..1001).map { if (it == 1001) Done(ack) else Spin(it) }
@@ -108,16 +112,22 @@ class PlaygroundActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Distributes work to multiple actors
+     */
     private fun startDistributed() {
         job.cancel()
         job = Job()
 
         actor?.close()
 
+        // We create a pool of actors that we can distribute work to later (adjust the number to see
+        // how much performance gain you can achieve)
         val children: List<SendChannel<Action>> = (1..4).map { createActor() }
-        var next = 0
 
-        actor = actor(CommonPool, 0) {
+        // Our main actor now acts as a router that distributes work to our child actors created before
+        actor = actor(Dispatchers.IO, 0) {
+            var next = 0
             consumeEach { action ->
                 when (action) {
                     is Spin -> {
@@ -140,7 +150,7 @@ class PlaygroundActivity : AppCompatActivity() {
             }
         }
 
-        job = launch(UI) {
+        launch {
             val start = System.currentTimeMillis()
             val ack = CompletableDeferred<Boolean>()
             (1..1001).map { if (it == 1001) Done(ack) else Spin(it) }
@@ -161,7 +171,10 @@ class PlaygroundActivity : AppCompatActivity() {
         }
     }
 
-    private fun createActor() = actor<Action>(CommonPool, 0, parent = job) {
+    /**
+     * Creates an actor that does work using the [io context][Dispatchers.IO]
+     */
+    private fun createActor() = actor<Action>(Dispatchers.IO, 0) {
         consumeEach { action ->
             when (action) {
                 is Spin -> spin(action.id)

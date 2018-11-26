@@ -1,6 +1,6 @@
 package com.experiment.actorplayground
 
-import kotlinx.coroutines.experimental.CompletableDeferred
+import kotlinx.coroutines.CompletableDeferred
 
 sealed class Action
 data class Spin(val id: Int) : Action()
